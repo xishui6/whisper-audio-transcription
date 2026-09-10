@@ -1,0 +1,22 @@
+# 虚拟环境与解释器
+venv/
+python310/
+
+# 模型文件（过大，需单独下载）
+models/
+
+# 便携工具
+ffmpeg/
+
+# 运行时数据
+audios/
+records.json
+
+# Python 缓存
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Streamlit
+.streamlit/
