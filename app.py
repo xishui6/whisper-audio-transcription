@@ -13,6 +13,14 @@ RECORD_FILE = os.path.join(BASE_DIR, "records.json")
 
 st.set_page_config(page_title="Whisper AI 转写", page_icon="🎧", layout="wide")
 
+st.markdown("""
+<style>
+.title{font-size:42px;font-weight:700;}
+.subtitle{color:#666;font-size:18px;}
+.card{padding:18px;border-radius:12px;background:#f7f7f7;margin-bottom:15px;}
+</style>
+""", unsafe_allow_html=True)
+
 @st.cache_resource
 def load_model():
     return WhisperModel(MODEL_DIR, device="cpu", compute_type="int8")
@@ -29,25 +37,27 @@ if not os.path.exists(RECORD_FILE):
     with open(RECORD_FILE, "w", encoding="utf-8") as f:
         json.dump([], f, ensure_ascii=False)
 
-st.markdown("""
-<style>
-.title{font-size:42px;font-weight:700;}
-.subtitle{color:#666;font-size:18px;}
-</style>
-""", unsafe_allow_html=True)
+with open(RECORD_FILE,"r",encoding="utf-8") as f:
+    history=json.load(f)
 
 with st.sidebar:
-    st.header("⚙️ 模型信息")
-    st.info("Whisper-small\nfaster-whisper\nCPU INT8\n中文识别")
+    st.header("⚙️ 设置")
+    st.info("Whisper-small\nfaster-whisper\nCPU INT8\nAI摘要增强")
 
-st.markdown("""
-<div class='title'>🎧 Whisper AI</div>
-<div class='subtitle'>本地离线语音转文字系统</div>
-<br>🔒 Offline　⚡ Faster Whisper　🤖 AI摘要
-""", unsafe_allow_html=True)
+st.markdown("<div class='title'>🎧 Whisper AI Assistant</div>", unsafe_allow_html=True)
+st.markdown("<div class='subtitle'>本地语音转写与智能摘要系统</div>", unsafe_allow_html=True)
+
+c1,c2,c3=st.columns(3)
+c1.metric("📁 已处理文件", len(history))
+c2.metric("🤖 AI能力", "摘要生成")
+c3.metric("🔒 部署方式", "Offline")
+
+st.divider()
+
+st.subheader("🎵 上传音频")
 
 AUDIO_TYPES=["mp3","wav","m4a","aac","flac","ogg","opus","webm","mp4","amr","wma","aiff"]
-upload_audio=st.file_uploader("🎵 上传音频文件", type=AUDIO_TYPES)
+upload_audio=st.file_uploader("选择音频文件", type=AUDIO_TYPES)
 
 
 def format_time(seconds):
@@ -93,26 +103,25 @@ if upload_audio:
             "create_time":datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         }
 
-        with open(RECORD_FILE,"r",encoding="utf-8") as f:
-            records=json.load(f)
-        records.append(record)
+        history.append(record)
         with open(RECORD_FILE,"w",encoding="utf-8") as f:
-            json.dump(records,f,ensure_ascii=False,indent=2)
+            json.dump(history,f,ensure_ascii=False,indent=2)
 
-        st.subheader("📝 转写结果")
-        st.text_area("",text_out,height=220)
+        tab1,tab2,tab3=st.tabs(["📝 转写文本","🎬 字幕","🤖 AI摘要"])
 
-        st.subheader("🤖 AI摘要")
-        if st.button("生成摘要"):
-            with st.spinner("AI正在整理内容..."):
-                summary = summary_model.generate(text_out)
-            st.markdown(summary)
+        with tab1:
+            st.text_area("",text_out,height=220)
+            st.download_button("📥 下载TXT",text_out,file_name="result.txt")
 
-        c1,c2=st.columns(2)
-        with c1:
-            st.download_button("📥 下载 TXT",text_out,file_name="result.txt")
-        with c2:
-            st.download_button("🎬 下载 SRT 字幕",srt_text,file_name="subtitle.srt")
+        with tab2:
+            st.text_area("",srt_text,height=220)
+            st.download_button("🎬 下载SRT",srt_text,file_name="subtitle.srt")
+
+        with tab3:
+            if st.button("生成摘要"):
+                with st.spinner("AI整理中..."):
+                    summary=summary_model.generate(text_out)
+                st.markdown(summary)
 
         st.subheader("⏱️ 时间戳")
         for seg in segment_list:
@@ -121,9 +130,6 @@ if upload_audio:
 st.divider()
 st.subheader("📜 历史记录")
 
-with open(RECORD_FILE,"r",encoding="utf-8") as f:
-    history=json.load(f)
-
 for item in reversed(history):
-    with st.expander(f"{item['filename']} | {item['cost_time']}s"):
+    with st.expander(f"📄 {item['filename']} | ⏱ {item['cost_time']}s"):
         st.write(item["trans_text"])
