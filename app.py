@@ -4,6 +4,7 @@ import os
 import time
 from datetime import datetime
 from faster_whisper import WhisperModel
+from ai_summary.summary import AISummary
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 MODEL_DIR = os.path.join(BASE_DIR, "models", "faster-whisper-small")
@@ -16,7 +17,12 @@ st.set_page_config(page_title="Whisper AI 转写", page_icon="🎧", layout="wid
 def load_model():
     return WhisperModel(MODEL_DIR, device="cpu", compute_type="int8")
 
+@st.cache_resource
+def load_summary_model():
+    return AISummary()
+
 model = load_model()
+summary_model = load_summary_model()
 os.makedirs(AUDIO_FOLDER, exist_ok=True)
 
 if not os.path.exists(RECORD_FILE):
@@ -37,11 +43,10 @@ with st.sidebar:
 st.markdown("""
 <div class='title'>🎧 Whisper AI</div>
 <div class='subtitle'>本地离线语音转文字系统</div>
-<br>🔒 Offline　⚡ Faster Whisper　🌏 中文优化
+<br>🔒 Offline　⚡ Faster Whisper　🤖 AI摘要
 """, unsafe_allow_html=True)
 
 AUDIO_TYPES=["mp3","wav","m4a","aac","flac","ogg","opus","webm","mp4","amr","wma","aiff"]
-
 upload_audio=st.file_uploader("🎵 上传音频文件", type=AUDIO_TYPES)
 
 
@@ -96,6 +101,12 @@ if upload_audio:
 
         st.subheader("📝 转写结果")
         st.text_area("",text_out,height=220)
+
+        st.subheader("🤖 AI摘要")
+        if st.button("生成摘要"):
+            with st.spinner("AI正在整理内容..."):
+                summary = summary_model.generate(text_out)
+            st.markdown(summary)
 
         c1,c2=st.columns(2)
         with c1:
