@@ -14,7 +14,7 @@ from ai_summary.diarize import SpeakerDiarizer
 from ai_summary.format_utils import build_transcript
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-MODEL_DIR = os.path.join(BASE_DIR, "models", "faster-whisper-small")
+MODEL_DIR = os.path.join(BASE_DIR, "models", "faster-whisper-large-v3")
 AUDIO_FOLDER = os.path.join(BASE_DIR, "audios")
 RECORD_FILE = os.path.join(BASE_DIR, "records.json")
 
@@ -27,7 +27,11 @@ if "last_result" not in st.session_state:
 
 @st.cache_resource
 def load_model():
-    return WhisperModel(MODEL_DIR, device="cpu", compute_type="int8")
+    # 优先 GPU（float16）；CUDA 不可用时自动回退 CPU（int8）
+    try:
+        return WhisperModel(MODEL_DIR, device="cuda", compute_type="float16")
+    except Exception:
+        return WhisperModel(MODEL_DIR, device="cpu", compute_type="int8")
 
 
 @st.cache_resource
@@ -92,8 +96,10 @@ if upload:
         # ---- 1. 转写（带词级时间戳） ----
         start = time.time()
         with st.spinner("正在转写..."):
-            segments, info = model.transcribe(path, language="zh", beam_size=5,
-                                              word_timestamps=True)
+            segments, info = model.transcribe(path, language="zh", beam_size=8,
+                                              word_timestamps=True,
+                                              vad_filter=True,
+                                              initial_prompt="以下是普通话的句子。")
             segment_list = list(segments)
             raw_text = "".join(s.text for s in segment_list)
             words = []

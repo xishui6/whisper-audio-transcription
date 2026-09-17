@@ -5,7 +5,7 @@
 ## 功能特性
 
 - 支持 mp3 / wav / m4a / aac / flac / ogg / opus / webm / mp4 / amr / wma / aiff 共 12 种格式（底层 PyAV/FFmpeg 解码）
-- 基于 faster-whisper（CTranslate2 推理后端），Whisper-small 多语言模型，CPU int8 即可运行
+- 基于 faster-whisper（CTranslate2 推理后端），Whisper-large-v3 多语言模型，GPU(float16) 优先、CPU(int8) 兜底
 - 强制中文识别（language="zh"），减少语种误判
 - **标点断句**：本地规则引擎（RulePunctuator）利用词级时间戳自动断句，疑问句补「？」、感叹句补「！」、语气词/连接词断句、长句按停顿时长兜底，无需联网
 - **说话人分离（可选开关）**：本地 CAM++ 说话人分离模型（ModelScope，国内直连下载），把不同说话人的话按人换行展示（【说话人 N】）；失败自动降级为按停顿分段
@@ -50,10 +50,11 @@ pip install -r requirements.txt -i https://pypi.tuna.tsinghua.edu.cn/simple
 ```
 
 ### 3. 下载模型
-模型文件约 461MB，从 ModelScope 下载（国内可直连）：
-- 地址：https://modelscope.cn/models/Systran/faster-whisper-small/files
-- 下载 `config.json`、`model.bin`、`tokenizer.json`、`vocabulary.txt` 四个文件
-- 放到项目目录的 `models/faster-whisper-small/` 下
+模型文件约 2.9GB，从 ModelScope 下载（国内可直连）：
+- 地址：https://modelscope.cn/models/Systran/faster-whisper-large-v3/files
+- 下载 `config.json`、`configuration.json`、`preprocessor_config.json`、`tokenizer.json`、`vocabulary.json`、`model.bin` 六个文件
+- 放到项目目录的 `models/faster-whisper-large-v3/` 下
+- 无 NVIDIA 显卡时也可用 small 模型（`Systran/faster-whisper-small`），并把代码中 `MODEL_DIR` 与 `compute_type` 相应改回
 
 ## 运行
 
@@ -88,7 +89,19 @@ SUMMARY_MODEL=deepseek-chat                 # DeepSeek-V3；其他服务填对�
 ```bat
 venv\Scripts\python.exe test_whisper.py audios\test.wav
 ```
-实测：约 10 秒清晰普通话音频，CPU int8 转写耗时约 3.6 秒，文本准确。
+实测（RTX 4060，large-v3 / float16 / beam=8 / VAD）：40 秒普通话对话转写约 6.7 秒，文本近乎全对；古诗类文言文仍会有少量同音字错误（所有 ASR 的通病，可借「AI 标点精修」的 LLM 修正）。
+
+## GPU 加速（可选，推荐）
+
+代码已自动优先使用 CUDA（`device="cuda", compute_type="float16"`），CUDA 不可用时回退 CPU（int8），无需改代码。
+
+若报 `cublas64_12.dll is not found`（ctranslate2 未内置 cuBLAS），在 venv 内安装并补齐运行库：
+
+```bat
+venv\Scripts\python.exe -m pip install nvidia-cublas-cu12
+copy venv\Lib\site-packages\nvidia\cublas\bin\cublas64_12.dll venv\Lib\site-packages\ctranslate2\
+copy venv\Lib\site-packages\nvidia\cublas\bin\cublasLt64_12.dll venv\Lib\site-packages\ctranslate2\
+```
 
 ## 技术栈
 
@@ -99,4 +112,4 @@ venv\Scripts\python.exe test_whisper.py audios\test.wav
 | ctranslate2 | 4.8.2 |
 | streamlit | 1.38.0 |
 | PyAV(av) | 17.1.0，内置音频解码，无需系统安装 ffmpeg |
-| 模型 | faster-whisper-small（与 OpenAI Whisper-small 同权重） |
+| 模型 | faster-whisper-large-v3（与 OpenAI Whisper-large-v3 同权重） |
